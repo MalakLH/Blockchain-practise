@@ -1,28 +1,48 @@
 const SHA256 = require('crypto-js/sha256');
 
 class Block{
-    constructor(index, timestamp, data, previousHash = ''){
+    constructor(index, timestamp, data, previousHash = '', nonce = 0){
         this.index= index; //this is the number of the block in our chain
         this.timestamp= timestamp; //the exact time of our transaction
         this.data= data; //the data of our transaction
         this.previousHash= previousHash; //to verify the integrity of our block
-        this.hash = this.calculateHash(); //contains the hush of our block and is to be calculated each time
-    }
+        this.nonce = nonce;
+        this.hash = '0'; //contains the hush of our block and is to be calculated each time
+    } //initilize the block
 
     calculateHash(){
-        return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data)).toString();
-    }
+        return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data) + this.nonce).toString();
+    } //calculate the hush
+
+    mineBlock(difficulty) {
+        const target = Array(difficulty + 1).join("0"); // Creates "0000" if difficulty is 4
+        
+        this.hash = this.calculateHash();
+        
+        while (this.hash.substring(0, difficulty) !== target) {
+            this.nonce++;
+            this.hash = this.calculateHash(); // Update the hash property directly
+        }
+
+        console.log(`Block Mined! Nonce: ${this.nonce}, Hash: ${this.hash}`);
+        return this.hash;
+
+    }//PoW by verifying if the hash starts with "0"xdifficulty
+
 } //this is a single block
 
 class Blockchain{
     constructor(){
+        this.difficulty= 4; //now we need to set a difficulty level 
         this.chain = [this.createGenesisBlock()]; //a chain is an array of blocks aka chains
 
     } //responsible for initializing our blockchain
 
     createGenesisBlock(){
-        return new Block(0, "22/01/2026", "Genesis block","0");
-    } //a chain starts by a genesis block
+        let genesis =  new Block(0, "22/01/2026", "Genesis block","0"); //a chain starts by a genesis block
+        genesis.mineBlock(this.difficulty); //genesis needs mining too 
+        return genesis;
+    } 
     //a genesis block is added manually
 
     getLatestBlock(){
@@ -32,11 +52,12 @@ class Blockchain{
     addBlock(newBlock){
         newBlock.previousHash= this.getLatestBlock().hash 
         //set the previousHash property
-        // of the new block to the hash of the previous one
+        //of the new block to the hash of the previous one
 
-        newBlock.hash= newBlock.calculateHash(); 
+        newBlock.hash= newBlock.mineBlock(this.difficulty); 
         //we need to recalculate the hash of the new block
         //as any modification to the attributes of the block modifies the hash 
+        //now we'll use the proof of work
         
         this.chain.push(newBlock); 
         //in reality we shouldn't be able to add blocks
@@ -68,21 +89,5 @@ let newcoin = new Blockchain();
 newcoin.addBlock(new Block(1, "24/01/2026", {amount: 4}));
 newcoin.addBlock(new Block(2, "26/01/2026", {amount: 10}));
 
+console.log(JSON.stringify(newcoin, null, 4));
 console.log('is blockchain valid? ' + newcoin.isChainValid());
-
-newcoin.chain[1].data = { amount: 100};
-
-// we need all this just to make the chain valid again
-
-newcoin.chain[1].hash = newcoin.chain[1].calculateHash();
-// calculate the new hush of bloc 1
-
-newcoin.chain[2].previousHash = newcoin.chain[1].hash;
-//modify the previous hash of block 2 to be the nexly calculated hush of block 1
-
-newcoin.chain[2].hash = newcoin.chain[2].calculateHash();
-//modify the current hash of block 2 cuz it contains the previous hash
-
-console.log('is blockchain valid? ' + newcoin.isChainValid());
-
-console.log(JSON.stringify(newcoin, null,4));
