@@ -1,17 +1,24 @@
 const SHA256 = require('crypto-js/sha256');
 
+class transaction{
+    constructor(fromAddr,toAddr,amount){
+        this.fromAddr= fromAddr;
+        this.toAddr= toAddr;
+        this.amount= amount;
+    }
+}
+
 class Block{
-    constructor(index, timestamp, data, previousHash = '', nonce = 0){
-        this.index= index; //this is the number of the block in our chain
+    constructor(timestamp, transactions, previousHash = '', nonce = 0){
         this.timestamp= timestamp; //the exact time of our transaction
-        this.data= data; //the data of our transaction
+        this.transactions= transactions; //the data of our transaction
         this.previousHash= previousHash; //to verify the integrity of our block
-        this.nonce = nonce;
+        this.nonce = nonce; //the nounce that We're going to increment for the proof of work
         this.hash = '0'; //contains the hush of our block and is to be calculated each time
     } //initilize the block
 
     calculateHash(){
-        return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data) + this.nonce).toString();
+        return SHA256(this.previousHash + this.timestamp + JSON.stringify(this.transactions) + this.nonce).toString();
     } //calculate the hush
 
     mineBlock(difficulty) {
@@ -33,13 +40,14 @@ class Block{
 
 class Blockchain{
     constructor(){
-        this.difficulty= 4; //now we need to set a difficulty level 
-        this.chain = [this.createGenesisBlock()]; //a chain is an array of blocks aka chains
-
+        this.difficulty= 2; //now we need to set a difficulty level 
+        this.chain = [this.createGenesisBlock()]; //a chain is an array of blocks
+        this.pendingTransactions=[];
+        this.miningReward= 100;
     } //responsible for initializing our blockchain
 
     createGenesisBlock(){
-        let genesis =  new Block(0, "22/01/2026", "Genesis block","0"); //a chain starts by a genesis block
+        let genesis =  new Block("22/01/2026", "Genesis block","0"); //a chain starts by a genesis block
         genesis.mineBlock(this.difficulty); //genesis needs mining too 
         return genesis;
     } 
@@ -49,7 +57,7 @@ class Blockchain{
         return this.chain[this.chain.length - 1];
     } //pretty simple as it just return the last block in the chain
 
-    addBlock(newBlock){
+    /* addBlock(newBlock){
         newBlock.previousHash= this.getLatestBlock().hash 
         //set the previousHash property
         //of the new block to the hash of the previous one
@@ -64,6 +72,40 @@ class Blockchain{
         // to our chain so easily cuz we need to have numerous 
         //checks in place to inhance security
 
+    } */
+
+    minePendingTransactions(miningRewardAddress){
+        let block= new Block(Date.now(), this.pendingTransactions); //in reality miners have to choose which pending transactions to add to the block
+        block.mineBlock(this.difficulty);
+        this.chain.push(block);
+
+        this.pendingTransactions=[
+            new transaction(null, miningRewardAddress, this.miningReward)
+        ]; //add the reward for the miner and remove the transactions pending all at once
+    }
+
+    createTransaction(transaction){
+        this.pendingTransactions.push(transaction);
+    } //to add a transaction in the pending transaction 
+
+    getBalanceOfAddress(address){
+        let balance = 0;
+
+        for (const block of this.chain){
+            for(const trans of block.transactions){
+                if (trans.fromAddr === address){
+
+                    balance -= trans.amount;
+
+                }else if (trans.toAddr === address){
+
+                    balance += trans.amount; 
+
+                }
+            } //get the transactions part of the block
+        } //loop through all the blocks
+
+        return balance;
     }
 
     isChainValid(){
@@ -85,9 +127,18 @@ class Blockchain{
 }
 
 let newcoin = new Blockchain();
+newcoin.createTransaction(new transaction("malak","nada",30));
+newcoin.createTransaction(new transaction("malak","nada",50));
+newcoin.createTransaction(new transaction("nada","alaa",10));
+newcoin.createTransaction(new transaction("alaa","malak",5));
 
-newcoin.addBlock(new Block(1, "24/01/2026", {amount: 4}));
-newcoin.addBlock(new Block(2, "26/01/2026", {amount: 10}));
+console.log('\n Starting the mining');
+newcoin.minePendingTransactions("loulou");
 
-console.log(JSON.stringify(newcoin, null, 4));
-console.log('is blockchain valid? ' + newcoin.isChainValid());
+console.log('\n balance of loulou', newcoin.getBalanceOfAddress("loulou"));
+
+console.log('\n Starting the mining again');
+newcoin.minePendingTransactions("loulou");
+
+console.log('\n balance of malak', newcoin.getBalanceOfAddress("malak"));
+console.log(newcoin.chain);
